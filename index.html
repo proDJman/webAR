@@ -21,40 +21,48 @@
     </style>
 
     <script>
-AFRAME.registerComponent('untrack-on-found', {
-    init: function () {
-        const el = this.el; // Ваша модель
-        const sceneEl = document.querySelector('a-scene');
+        AFRAME.registerComponent('untrack-on-found', {
+            init: function () {
+                const el = this.el; 
+                const sceneEl = document.querySelector('a-scene');
+                const overlay = document.querySelector('#example-scanning-overlay');
 
-        el.addEventListener('targetFound', () => {
-            console.log("Цель найдена! Переносим модель в мировое пространство...");
+                el.addEventListener('targetFound', () => {
+                    console.log("Маркер найден, фиксируем модель...");
+                    overlay.classList.add('hidden'); // Скрываем надпись
 
-            // Даем системе 500мс, чтобы стабилизировать позицию на маркере
-            setTimeout(() => {
-                const worldPosition = new THREE.Vector3();
-                const worldQuaternion = new THREE.Quaternion();
-                const worldScale = new THREE.Vector3();
+                    setTimeout(() => {
+                        // Получаем текущую позицию модели в реальном мире
+                        const worldPosition = new THREE.Vector3();
+                        const worldQuaternion = new THREE.Quaternion();
+                        const worldScale = new THREE.Vector3();
 
-                // 1. Берем текущее положение модели относительно камеры
-                el.object3D.getWorldPosition(worldPosition);
-                el.object3D.getWorldQuaternion(worldQuaternion);
-                el.object3D.getWorldScale(worldScale);
+                        el.object3D.getWorldPosition(worldPosition);
+                        el.object3D.getWorldQuaternion(worldQuaternion);
+                        el.object3D.getWorldScale(worldScale);
 
-                // 2. Переносим модель в корень сцены (теперь она не зависит от маркера)
-                sceneEl.appendChild(el);
+                        // Перемещаем модель из-под трекера прямо в сцену
+                        sceneEl.appendChild(el);
 
-                // 3. Возвращаем ей те же координаты, но уже в мировых осях
-                el.object3D.position.copy(worldPosition);
-                el.object3D.quaternion.copy(worldQuaternion);
-                el.object3D.scale.copy(worldScale);
-
-                // 4. Опционально: останавливаем поиск новых маркеров
-                // sceneEl.systems['mindar-image-system'].stopScanning();
-                
-                console.log("Модель зафиксирована.");
-            }, 500);
+                        // Применяем сохраненные координаты
+                        el.object3D.position.copy(worldPosition);
+                        el.object3D.quaternion.copy(worldQuaternion);
+                        el.object3D.scale.copy(worldScale);
+                        
+                        // Останавливаем систему трекинга, чтобы сэкономить ресурсы
+                        // sceneEl.systems['mindar-image-system'].stopScanning();
+                    }, 300); // Небольшая задержка для стабильности
+                });
+            }
         });
-    }
+		document.addEventListener("DOMContentLoaded", () => {
+    const sceneEl = document.querySelector('a-scene');
+    sceneEl.addEventListener("arReady", (event) => {
+        console.log("MindAR готов к работе!");
+    });
+    sceneEl.addEventListener("arError", (event) => {
+        alert("Ошибка AR: " + event.detail.error);
+    });
 });
     </script>
 </head>
