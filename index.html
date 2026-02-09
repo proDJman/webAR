@@ -55,6 +55,15 @@
                 });
             }
         });
+		document.addEventListener("DOMContentLoaded", () => {
+    const sceneEl = document.querySelector('a-scene');
+    sceneEl.addEventListener("arReady", (event) => {
+        console.log("MindAR готов к работе!");
+    });
+    sceneEl.addEventListener("arError", (event) => {
+        alert("Ошибка AR: " + event.detail.error);
+    });
+});
     </script>
 </head>
 <body>
