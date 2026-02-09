@@ -18,51 +18,51 @@
             background: rgba(0,0,0,0.5); color: white; z-index: 10; font-family: sans-serif;
         }
         #example-scanning-overlay.hidden { display: none; }
+		#guide-overlay {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 70vw; /* Ширина 70% от экрана */
+    opacity: 0.5;
+    pointer-events: none; /* Чтобы можно было нажимать сквозь картинку */
+    z-index: 5;
+    display: block;
+}
+#guide-overlay.hidden {
+    display: none;
+}
     </style>
 
     <script>
-        AFRAME.registerComponent('untrack-on-found', {
-            init: function () {
-                const el = this.el; 
-                const sceneEl = document.querySelector('a-scene');
-                const overlay = document.querySelector('#example-scanning-overlay');
+AFRAME.registerComponent('untrack-on-found', {
+    init: function () {
+        const el = this.el;
+        const overlay = document.querySelector('#guide-overlay'); // Наша подсказка
+        const scanningText = document.querySelector('#example-scanning-overlay');
 
-                el.addEventListener('targetFound', () => {
-                    console.log("Маркер найден, фиксируем модель...");
-                    overlay.classList.add('hidden'); // Скрываем надпись
+        el.addEventListener('targetFound', () => {
+            // Скрываем подсказку и текст загрузки
+            overlay.classList.add('hidden');
+            scanningText.classList.add('hidden');
+            
+            console.log("Объект найден, подсказка скрыта");
 
-                    setTimeout(() => {
-                        // Получаем текущую позицию модели в реальном мире
-                        const worldPosition = new THREE.Vector3();
-                        const worldQuaternion = new THREE.Quaternion();
-                        const worldScale = new THREE.Vector3();
-
-                        el.object3D.getWorldPosition(worldPosition);
-                        el.object3D.getWorldQuaternion(worldQuaternion);
-                        el.object3D.getWorldScale(worldScale);
-
-                        // Перемещаем модель из-под трекера прямо в сцену
-                        sceneEl.appendChild(el);
-
-                        // Применяем сохраненные координаты
-                        el.object3D.position.copy(worldPosition);
-                        el.object3D.quaternion.copy(worldQuaternion);
-                        el.object3D.scale.copy(worldScale);
-                        
-                        // Останавливаем систему трекинга, чтобы сэкономить ресурсы
-                        // sceneEl.systems['mindar-image-system'].stopScanning();
-                    }, 300); // Небольшая задержка для стабильности
-                });
-            }
+            // Далее ваш старый код фиксации модели...
+            setTimeout(() => {
+                const worldPosition = new THREE.Vector3();
+                const worldQuaternion = new THREE.Quaternion();
+                const worldScale = new THREE.Vector3();
+                el.object3D.getWorldPosition(worldPosition);
+                el.object3D.getWorldQuaternion(worldQuaternion);
+                el.object3D.getWorldScale(worldScale);
+                document.querySelector('a-scene').appendChild(el);
+                el.object3D.position.copy(worldPosition);
+                el.object3D.quaternion.copy(worldQuaternion);
+                el.object3D.scale.copy(worldScale);
+            }, 300);
         });
-		document.addEventListener("DOMContentLoaded", () => {
-    const sceneEl = document.querySelector('a-scene');
-    sceneEl.addEventListener("arReady", (event) => {
-        console.log("MindAR готов к работе!");
-    });
-    sceneEl.addEventListener("arError", (event) => {
-        alert("Ошибка AR: " + event.detail.error);
-    });
+    }
 });
     </script>
 </head>
@@ -71,7 +71,7 @@
     <div id="example-scanning-overlay">
         <p>Наведите камеру на QR-код...</p>
     </div>
-
+<img id="guide-overlay" src="./targets.jpg" alt="Guide">
     <a-scene 
         mindar-image="imageTargetSrc: ./targets.mind; filterMinCF:0.001; filterBeta: 0.01;" 
         color-space="sRGB" 
