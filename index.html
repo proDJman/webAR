@@ -1,91 +1,81 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html>
 <head>
-    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WebAR Video Fix</title>
-    
+    <title>Debug WebAR</title>
     <script src="https://aframe.io/releases/1.3.0/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.0/dist/mindar-image-aframe.prod.js"></script>
 
     <style>
-        body { margin: 0; overflow: hidden; background: #000; font-family: sans-serif; }
-        
-        /* Стартовый экран — критически важен для Android */
-        #start-screen {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.9); z-index: 2000;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            color: white; text-align: center;
-        }
-        #start-btn {
-            padding: 20px 40px; font-size: 20px; cursor: pointer;
-            background: #2196F3; border: none; border-radius: 10px; color: white;
-        }
-
-        #ar-video {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            object-fit: cover; z-index: 999; display: none;
-        }
-
-        #guide-overlay {
-            position: absolute; top: 50%; left: 50%;
-            transform: translate(-50%, -50%); width: 70vw;
-            opacity: 0.5; z-index: 5; pointer-events: none; display: none;
-        }
+        body { margin: 0; background: #000; color: white; font-family: sans-serif; }
+        #debug-log { position: absolute; top: 0; width: 100%; background: rgba(0,0,0,0.8); z-index: 3000; font-size: 10px; color: #0f0; padding: 5px; }
+        #start-screen { position: absolute; inset: 0; background: #111; z-index: 2500; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        #start-btn { padding: 20px 40px; background: #2196F3; color: white; border: none; border-radius: 50px; font-weight: bold; }
+        #ar-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 2000; display: none; }
+        #guide { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); width: 70vw; opacity: 0.5; z-index: 10; display: none; pointer-events: none; }
     </style>
 
     <script>
-        // Функция запуска
-        function startAR() {
-            document.getElementById('start-screen').style.display = 'none';
-            document.getElementById('guide-overlay').style.display = 'block';
-            
-            // Запускаем сцену программно
-            const sceneEl = document.querySelector('a-scene');
-            sceneEl.setAttribute('mindar-image', 'autoStart: true');
-            
-            // "Прогреваем" видео, чтобы браузер разрешил его потом
-            const video = document.querySelector('#ar-video');
-            video.play(); 
-            video.pause();
+        // Функция для вывода ошибок прямо на экран телефона
+        function log(msg) {
+            const div = document.getElementById('debug-log');
+            if (div) div.innerHTML += '> ' + msg + '<br>';
+            console.log(msg);
+        }
+
+        async function initAR() {
+            log("Нажата кнопка старт");
+            const startScreen = document.getElementById('start-screen');
+            const video = document.getElementById('ar-video');
+
+            try {
+                log("Запрос доступа к камере...");
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                log("Камера разрешена!");
+                stream.getTracks().forEach(track => track.stop()); // Закрываем временный поток
+
+                startScreen.style.display = 'none';
+                document.getElementById('guide').style.display = 'block';
+                
+                // Запускаем сцену
+                const scene = document.querySelector('a-scene');
+                scene.setAttribute('mindar-image', 'imageTargetSrc: ./targets.mind; autoStart: true;');
+                
+                log("Система MindAR запущена");
+            } catch (err) {
+                log("ОШИБКА КАМЕРЫ: " + err.name + ": " + err.message);
+                alert("Ошибка доступа к камере. Проверьте HTTPS и настройки разрешений.");
+            }
         }
 
         AFRAME.registerComponent('video-handler', {
             init: function () {
-                const video = document.querySelector('#ar-video');
-                const guide = document.querySelector('#guide-overlay');
-
+                const video = document.getElementById('ar-video');
+                const guide = document.getElementById('guide');
                 this.el.addEventListener('targetFound', () => {
+                    log("МАРКЕР НАЙДЕН!");
                     guide.style.display = 'none';
                     video.style.display = 'block';
-                    video.play();
+                    video.play().catch(e => log("Ошибка видео: " + e));
                 });
             }
         });
     </script>
 </head>
 <body>
+    <div id="debug-log">Система готова. Ожидание нажатия...</div>
 
     <div id="start-screen">
-        <h2>WebAR Проект</h2>
-        <p>Для работы требуется доступ к камере</p>
-        <button id="start-btn" onclick="startAR()">ЗАПУСТИТЬ AR</button>
+        <button id="start-btn" onclick="initAR()">АКТИВИРОВАТЬ AR</button>
+        <p style="font-size: 12px; margin-top: 10px;">(требуется камера и HTTPS)</p>
     </div>
-    
-    <video id="ar-video" src="./mamont.mp4" preload="auto" playsinline webkit-playsinline loop></video>
 
-    <img id="guide-overlay" src="./targets.jpg">
+    <img id="guide" src="./targets.jpg">
+    <video id="ar-video" src="./mamont.mp4" playsinline webkit-playsinline loop></video>
 
-    <a-scene 
-        mindar-image="imageTargetSrc: ./targets.mind; autoStart: false; uiLoading: no; uiScanning: no;" 
-        vr-mode-ui="enabled: false" 
-        device-orientation-permission-ui="enabled: true">
-        
+    <a-scene embedded vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false">
         <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
-
         <a-entity mindar-image-target="targetIndex: 0" video-handler></a-entity>
     </a-scene>
-
 </body>
 </html>
