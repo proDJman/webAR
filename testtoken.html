@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>WireGeo Test: Grouping</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; }
+        .log { background: #f0f0f0; padding: 10px; border: 1px solid #ccc; margin-top: 10px; white-space: pre-wrap; height: 300px; overflow-y: scroll;}
+        button { padding: 15px 30px; font-size: 16px; background: #1976D2; color: white; border: none; cursor: pointer; border-radius: 5px; }
+        button:hover { background: #115293; }
+        .success { color: green; }
+        .error { color: red; }
+    </style>
+</head>
+<body>
+
+    <h2>Тест группировки WireGeo</h2>
+    <p>Мы отправим 3 разных вещества с <b>ОДИНАКОВОЙ</b> меткой времени (Unix Timestamp).</p>
+    <p>Токен: <b>7754013a903a483d649aa62524e565b8</b></p>
+    
+    <button onclick="startTest()">Отправить тестовый пакет</button>
+
+    <h3>Лог операций:</h3>
+    <div id="console" class="log">Ожидание...</div>
+
+    <script>
+        // КОНФИГУРАЦИЯ
+        const TOKEN = "7754013a903a483d649aa62524e565b8";
+        const BASE_URL = "https://wiregeo.gank4.ru/api/v1/history/ByName/";
+        
+        // Список переменных для теста (убедитесь, что они есть в вашем аккаунте или создадутся)
+        // Используем имена из вашего примера и PDF
+        const TEST_DATA = [
+            { name: "NO2Conc_500", value: 150.5 },
+            { name: "COConc_500",  value: 2.3 },   // Предполагаем, что такая есть
+            { name: "temperature", value: 24.8 }   // Системная переменная
+        ];
+
+        function log(msg, type = "") {
+            const el = document.getElementById("console");
+            const span = document.createElement("div");
+            span.textContent = msg;
+            if (type) span.className = type;
+            el.appendChild(span);
+            el.scrollTop = el.scrollHeight;
+        }
+
+        async function sendVariable(name, value, timestamp) {
+            const url = BASE_URL + name;
+            
+            // Формируем тело запроса согласно документации для /history
+            const bodyData = {
+                token: TOKEN,
+                values: [
+                    [value, timestamp] // [Значение, Время]
+                ]
+            };
+
+            try {
+                log(`>> Отправка ${name} (знач: ${value}, время: ${timestamp})...`);
+                
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify(bodyData)
+                });
+
+                const text = await response.text();
+                
+                if (response.ok) {
+                    log(`<< УСПЕХ ${name}: ${text}`, "success");
+                } else {
+                    log(`<< ОШИБКА ${name} (${response.status}): ${text}`, "error");
+                }
+            } catch (err) {
+                log(`<< ОШИБКА СЕТИ ${name}: ${err.message}`, "error");
+                console.error(err);
+                
+                if (err.message.includes("Failed to fetch")) {
+                    log("⚠️ ВНИМАНИЕ: Возможно блокировка CORS. Попробуйте отключить защиту в браузере или использовать PowerShell версию ниже.", "error");
+                }
+            }
+        }
+
+async function startTest() {
+            document.getElementById("console").innerHTML = "";
+            
+            // --- НАСТРОЙКА ВРЕМЕНИ ---
+            // 1. Берем текущее время
+            let date = new Date();
+            // 2. Отматываем на 1 месяц назад
+            date.setMonth(date.getMonth() - 1);
+            
+            // Или можно задать жестко: 
+            // let date = new Date("2023-12-15T10:00:00");
+
+            // Превращаем в Unix Timestamp (секунды)
+            const FIXED_TIMESTAMP = Math.floor(date.getTime() / 1000);
+            // -------------------------
+            
+            log(`=== СТАРТ ТЕСТА (ИСТОРИЯ) ===`);
+            log(`Отправляем данные за дату: ${date.toLocaleString()}`);
+            log(`Unix Timestamp: ${FIXED_TIMESTAMP}`);
+            log(`---------------------`);
+
+            const promises = TEST_DATA.map(item => 
+                sendVariable(item.name, item.value, FIXED_TIMESTAMP)
+            );
+
+            await Promise.all(promises);
+
+            log(`---------------------`);
+            log(`=== ГОТОВО ===`);
+            log(`Зайдите в WireGeo и выберите в календаре дату: ${date.toLocaleDateString()}`);
+        }
+    </script>
+</body>
+</html>
