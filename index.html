@@ -32,35 +32,42 @@
 #guide-overlay.hidden {
     display: none;
 }
+	#ar-video {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover; /* Видео растянется на весь экран */
+        z-index: 100;      /* Поверх всего */
+        display: none;     /* Скрыто по умолчанию */
+    }
     </style>
 
     <script>
 AFRAME.registerComponent('untrack-on-found', {
     init: function () {
         const el = this.el;
-        const overlay = document.querySelector('#guide-overlay'); // Наша подсказка
-        const scanningText = document.querySelector('#example-scanning-overlay');
+        const video = document.querySelector('#ar-video');
+        const overlay = document.querySelector('#guide-overlay');
 
         el.addEventListener('targetFound', () => {
-            // Скрываем подсказку и текст загрузки
-            overlay.classList.add('hidden');
-            scanningText.classList.add('hidden');
+            console.log("Маркер найден! Запускаю видео...");
             
-            console.log("Объект найден, подсказка скрыта");
+            // 1. Скрываем подсказку (медведя)
+            if(overlay) overlay.classList.add('hidden');
 
-            // Далее ваш старый код фиксации модели...
-            setTimeout(() => {
-                const worldPosition = new THREE.Vector3();
-                const worldQuaternion = new THREE.Quaternion();
-                const worldScale = new THREE.Vector3();
-                el.object3D.getWorldPosition(worldPosition);
-                el.object3D.getWorldQuaternion(worldQuaternion);
-                el.object3D.getWorldScale(worldScale);
-                document.querySelector('a-scene').appendChild(el);
-                el.object3D.position.copy(worldPosition);
-                el.object3D.quaternion.copy(worldQuaternion);
-                el.object3D.scale.copy(worldScale);
-            }, 300);
+            // 2. Показываем и запускаем видео
+            video.style.display = 'block';
+            video.play();
+
+            // 3. Опционально: кнопка закрытия видео
+            video.addEventListener('click', () => {
+                video.pause();
+                video.style.display = 'none';
+                // Если нужно, чтобы подсказка вернулась:
+                // if(overlay) overlay.classList.remove('hidden');
+            });
         });
     }
 });
