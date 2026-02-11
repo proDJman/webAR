@@ -142,6 +142,7 @@
     }
   }
 });
+
   </script>
 </head>
 
@@ -179,7 +180,7 @@
 
     <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
-    <a-entity mindar-image-target="targetIndex: 0" marker-handler>
+    <a-entity mindar-image-target="targetIndex: 0" marker-handler pose-smoothing="posAlpha: 0.12; rotAlpha: 0.10">
       <a-gltf-model
         src="#model"
         position="0 0 0"
@@ -222,26 +223,6 @@
         setStatus("Не удалось запустить камеру/AR. Проверьте разрешения и HTTPS.");
       });
 
-Понял. Это типичная проблема iOS/Safari: ты делаешь getUserMedia(), сразу останавливаешь треки, и тут же MindAR пытается снова открыть камеру — а iOS ещё “не отпустил” девайс камеры (release не мгновенный). В итоге первый запуск висит “нет доступа / ждём”, а через 30–60 сек камера реально освобождается — и со 2-го нажатия MindAR стартует.
-
-В твоём текущем mamont.html как раз так и сделано: getUserMedia → stop tracks → mindar.start() без паузы/ретрая. 
-
-mamont
-
-Что сделать (работающее решение)
-
-После stop() дать паузу (обычно 600–1200мс на iOS).
-
-Сделать авто-retry mindar.start() 2–3 раза (без второго тапа).
-
-Поставить таймаут, чтобы не “ждать минуту молча”.
-
-Вот готовая замена твоего обработчика кнопки (вставь вместо текущего startBtn.addEventListener("click", ...)) 
-
-mamont
-
-:
-
 startBtn.addEventListener("click", async () => {
   const mindar = scene.systems["mindar-image-system"];
   if (!mindar) {
@@ -249,77 +230,34 @@ startBtn.addEventListener("click", async () => {
     return;
   }
 
-  const sleep = (ms) => new Promise(r => setTimeout(r, ms));
-
   const lockUi = (locked, text) => {
     startBtn.disabled = locked;
     spinner.style.display = locked ? "block" : "none";
     setStatus(text || "");
   };
 
-  // ждём arReady не бесконечно
-  const waitForArReady = (timeoutMs = 8000) => new Promise((resolve, reject) => {
-    let done = false;
-    const ok = () => {
-      if (done) return;
-      done = true;
-      cleanup();
-      resolve(true);
-    };
-    const fail = () => {
-      if (done) return;
-      done = true;
-      cleanup();
-      reject(new Error("arReady timeout"));
-    };
-    const cleanup = () => {
-      scene.removeEventListener("arReady", ok);
-      clearTimeout(t);
-    };
-    scene.addEventListener("arReady", ok, { once: true });
-    const t = setTimeout(fail, timeoutMs);
-  });
-
   try {
     lockUi(true, "Запрашиваем доступ к камере…");
 
-    // 1) Нативный запрос разрешения
+    // 1) НАТИВНЫЙ ПРОМПТ СРАЗУ (iOS любит только так)
+    // берём поток и сразу останавливаем, чтобы не конфликтовать с MindAR
     const stream = await navigator.mediaDevices.getUserMedia({
       video: { facingMode: "environment" },
       audio: false
     });
-
-    // 2) ВАЖНО: iOS не сразу освобождает камеру после stop().
     stream.getTracks().forEach(t => t.stop());
 
-    // Даем iOS реально “отпустить” камеру
-    lockUi(true, "Подготовка камеры…");
-    await sleep(900); // можно 600..1200, 900 обычно норм
-
-    // 3) Авто-повтор запуска MindAR (без второго тапа)
+    // 2) теперь запускаем MindAR (камера уже разрешена)
     lockUi(true, "Инициализация AR…");
+    await mindar.start();
 
-    let lastErr = null;
-    for (let attempt = 1; attempt <= 3; attempt++) {
-      try {
-        await mindar.start();
-        await waitForArReady(9000); // дождаться готовности
-        lastErr = null;
-        break;
-      } catch (e) {
-        lastErr = e;
-        console.log("mindar.start attempt", attempt, "failed:", e);
-        // ещё чуть подождать и повторить
-        await sleep(700 + attempt * 300);
-      }
-    }
-
-    if (lastErr) throw lastErr;
-
-    // дальше arReady сам скроет стартовый экран (как у тебя)
+    // arReady сам закроет стартовый экран (как у тебя сделано)
   } catch (err) {
     console.log("start error:", err);
-    lockUi(false, "Не удалось запустить камеру/AR. Проверьте: HTTPS и разрешение камеры.");
+
+    // Важно: если юзер нажал "Запретить", iOS может дальше молчать.
+    // Тогда надо отправить в Settings/разрешения браузера.
+    lockUi(false, "Камера не разрешена. Разрешите камеру в настройках браузера/сайта (Safari/Chrome).");
   }
 });
     });
