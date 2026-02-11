@@ -83,38 +83,111 @@
         }
     </style>
 
-    <script>
-        AFRAME.registerComponent('video-handler', {
-            init: function () {
-                const video = document.querySelector('#ar-video');
-                const closeBtn = document.querySelector('#close-btn');
-                const guide = document.querySelector('#guide-overlay');
+<script>
+  let isTargetVisible = false;
 
-                this.el.addEventListener('targetFound', () => {
-                    console.log("Маркер найден!");
-                    guide.style.display = 'none';
-                    video.style.display = 'block';
-                    closeBtn.style.display = 'block';
-                    
-                    // Пытаемся запустить. Если заблокировано — видео будет ждать клика.
-                    video.play().catch(err => {
-                        console.log("Автоплей заблокирован, нужно касание");
-                    });
-                });
-            }
-        });
+  function show(el){ el.style.display = 'flex'; }
+  function hide(el){ el.style.display = 'none'; }
 
-        function closeVideo() {
-            const video = document.querySelector('#ar-video');
-            const closeBtn = document.querySelector('#close-btn');
-            const guide = document.querySelector('#guide-overlay');
-            
-            video.pause();
-            video.style.display = 'none';
-            closeBtn.style.display = 'none';
-            guide.style.display = 'block';
+  function stopAndHideVideo(resetTime = true) {
+    const video = document.querySelector('#ar-video');
+    const closeBtn = document.querySelector('#close-btn');
+    video.pause();
+    if (resetTime) video.currentTime = 0;
+    video.style.display = 'none';
+    closeBtn.style.display = 'none';
+  }
+
+  function showScanUI() {
+    const guide = document.querySelector('#guide-overlay');
+    const scanning = document.querySelector('#scanning-overlay');
+    const restart = document.querySelector('#restart-overlay');
+    hide(restart);
+    guide.style.display = 'block';
+    scanning.style.display = 'block';
+  }
+
+  function showRestartUI() {
+    const guide = document.querySelector('#guide-overlay');
+    const scanning = document.querySelector('#scanning-overlay');
+    const restart = document.querySelector('#restart-overlay');
+    guide.style.display = 'none';
+    scanning.style.display = 'none';
+    show(restart);
+  }
+
+  function playFromStartIfAllowed() {
+    const video = document.querySelector('#ar-video');
+    const closeBtn = document.querySelector('#close-btn');
+
+    video.currentTime = 0;
+    video.style.display = 'block';
+    closeBtn.style.display = 'block';
+
+    video.play().catch(() => {
+      console.log("Автоплей заблокирован, нужно касание");
+      // если нужно — можно показать подсказку "тапните"
+    });
+  }
+
+  AFRAME.registerComponent('video-handler', {
+    init: function () {
+      const video = document.querySelector('#ar-video');
+      const guide = document.querySelector('#guide-overlay');
+      const scanning = document.querySelector('#scanning-overlay');
+      const restart = document.querySelector('#restart-overlay');
+      const restartBtn = document.querySelector('#restart-btn');
+
+      // Конец видео -> показать "начать заново"
+      video.addEventListener('ended', () => {
+        stopAndHideVideo(false); // currentTime не трогаем тут
+        showRestartUI();
+      });
+
+      // Кнопка "Начать заново"
+      restartBtn.addEventListener('click', () => {
+        hide(restart);
+
+        // если метка всё ещё в кадре — сразу стартуем
+        // иначе вернём UI сканирования
+        if (isTargetVisible) {
+          guide.style.display = 'none';
+          scanning.style.display = 'none';
+          playFromStartIfAllowed();
+        } else {
+          showScanUI();
         }
-    </script>
+      });
+
+      this.el.addEventListener('targetFound', () => {
+        console.log("Маркер найден!");
+        isTargetVisible = true;
+
+        hide(restart);
+        guide.style.display = 'none';
+        scanning.style.display = 'none';
+
+        playFromStartIfAllowed();
+      });
+
+      this.el.addEventListener('targetLost', () => {
+        console.log("Маркер потерян!");
+        isTargetVisible = false;
+
+        // Спрятать видео и вернуть режим сканирования
+        stopAndHideVideo(true);
+        showScanUI();
+      });
+    }
+  });
+
+  // Кнопка ✕ — просто остановить и вернуться к сканированию
+  function closeVideo() {
+    isTargetVisible = false;
+    stopAndHideVideo(true);
+    showScanUI();
+  }
+</script>
 </head>
 <body>
 
