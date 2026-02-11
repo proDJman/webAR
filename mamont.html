@@ -4,9 +4,40 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>WebAR Video Test</title>
+	
 <script src="./libs/aframe-extras.min.js"></script>    
 <script  src="./libs/aframe.min.js"></script>
 <script  src="./libs/mindar-image-aframe.prod.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const scene = document.querySelector("a-scene");
+  const video = document.querySelector('#ar-video');
+
+  scene.addEventListener("arReady", () => {
+    console.log("MindAR ready -> preload video");
+    video.load();
+  });
+});
+</script>
+
+<script>
+let videoUnlocked = false;
+
+document.addEventListener("touchstart", () => {
+  if (videoUnlocked) return;
+
+  const video = document.querySelector('#ar-video');
+
+  video.play().then(() => {
+    video.pause();
+    video.currentTime = 0;
+    videoUnlocked = true;
+    console.log("iOS video unlocked");
+  }).catch(()=>{});
+
+}, { once: true });
+</script>
+
 
     <style>
         body { margin: 0; overflow: hidden; background: #000; }
@@ -21,15 +52,7 @@
             display: none; 
         }
 
-        #guide-overlay {
-            position: absolute;
-            top: 50%; left: 50%;
-            transform: translate(-50%, -50%);
-            width: 70vw;
-            opacity: 0.5;
-            z-index: 5;
-            pointer-events: none;
-        }
+
 
         #scanning-overlay {
             position: absolute;
@@ -52,41 +75,95 @@
             display: none;
             cursor: pointer;
             font-weight: bold;
+
         }
+        #guide-overlay {
+        position: absolute;
+        inset: 0;
+        width: 100vw;
+        height: 100vh;
+        object-fit: cover; /* или contain */
+        opacity: 0.5;
+        z-index: 5;
+        pointer-events: none;
+      }
+
+
+        
+
     </style>
 
-    <script>
-        AFRAME.registerComponent('video-handler', {
-            init: function () {
-                const video = document.querySelector('#ar-video');
-                const closeBtn = document.querySelector('#close-btn');
-                const guide = document.querySelector('#guide-overlay');
+<script>
+  let isTargetVisible = false;
 
-                this.el.addEventListener('targetFound', () => {
-                    console.log("Маркер найден!");
-                    guide.style.display = 'none';
-                    video.style.display = 'block';
-                    closeBtn.style.display = 'block';
-                    
-                    // Пытаемся запустить. Если заблокировано — видео будет ждать клика.
-                    video.play().catch(err => {
-                        console.log("Автоплей заблокирован, нужно касание");
-                    });
-                });
-            }
-        });
+  function stopAndHideVideo(resetTime = true) {
+    const video = document.querySelector('#ar-video');
+    const closeBtn = document.querySelector('#close-btn');
+    video.pause();
+    if (resetTime) video.currentTime = 0;
+    video.style.display = 'none';
+    closeBtn.style.display = 'none';
+  }
 
-        function closeVideo() {
-            const video = document.querySelector('#ar-video');
-            const closeBtn = document.querySelector('#close-btn');
-            const guide = document.querySelector('#guide-overlay');
-            
-            video.pause();
-            video.style.display = 'none';
-            closeBtn.style.display = 'none';
-            guide.style.display = 'block';
-        }
-    </script>
+  function showScanUI() {
+    const guide = document.querySelector('#guide-overlay');
+    const scanning = document.querySelector('#scanning-overlay');
+    guide.style.display = 'block';
+    scanning.style.display = 'block';
+  }
+
+  function hideScanUI() {
+    const guide = document.querySelector('#guide-overlay');
+    const scanning = document.querySelector('#scanning-overlay');
+    guide.style.display = 'none';
+    scanning.style.display = 'none';
+  }
+
+  function playFromStartIfAllowed() {
+    const video = document.querySelector('#ar-video');
+    const closeBtn = document.querySelector('#close-btn');
+
+    video.currentTime = 0;
+    video.style.display = 'block';
+    closeBtn.style.display = 'block';
+
+    video.play().catch(() => {
+      console.log("Автоплей заблокирован, нужно касание");
+    });
+  }
+
+  AFRAME.registerComponent('video-handler', {
+    init: function () {
+      const video = document.querySelector('#ar-video');
+
+      // Когда видео закончилось — просто вернуться в режим сканирования
+      video.addEventListener('ended', () => {
+        stopAndHideVideo(true);
+        showScanUI();
+      });
+
+      this.el.addEventListener('targetFound', () => {
+        console.log("Маркер найден!");
+        isTargetVisible = true;
+        hideScanUI();
+        playFromStartIfAllowed();
+      });
+
+      this.el.addEventListener('targetLost', () => {
+        console.log("Маркер потерян!");
+        isTargetVisible = false;
+        stopAndHideVideo(true);
+        showScanUI();
+      });
+    }
+  });
+
+  function closeVideo() {
+    isTargetVisible = false;
+    stopAndHideVideo(true);
+    showScanUI();
+  }
+</script>
 </head>
 <body>
 
