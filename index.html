@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>WebAR Pixel Fix</title>
     
-    <script src="https://aframe.io/releases/1.4.1/aframe.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.2.2/dist/mindar-image-aframe.prod.js"></script>
+<script defer src="https://aframe.io/releases/1.4.1/aframe.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.2.2/dist/mindar-image-aframe.prod.js"></script>
 
     <style>
         body { margin: 0; background: #000; font-family: sans-serif; }
@@ -29,50 +29,50 @@
         #status { margin-top: 15px; color: #888; font-size: 0.9rem; }
     </style>
 
-    <script>
-        AFRAME.registerComponent('video-handler', {
-            init: function () {
-                const v = document.getElementById('ar-video');
-                const g = document.getElementById('guide');
-                this.el.addEventListener('targetFound', () => {
-                    g.style.display = 'none';
-                    v.style.display = 'block';
-                    v.play();
-                });
-            }
-        });
+<script>
+  function startAR() {
+    const sceneEl = document.querySelector('a-scene');
+    const overlay = document.getElementById('overlay');
+    const btn = document.getElementById('btn');
+    const guide = document.getElementById('guide');
+    const video = document.getElementById('ar-video');
 
-        function startAR() {
-            const sceneEl = document.querySelector('a-scene');
-            const overlay = document.getElementById('overlay');
-            const btn = document.getElementById('btn');
-            const guide = document.getElementById('guide');
-            const video = document.getElementById('ar-video');
+    btn.innerHTML = "ИНИЦИАЛИЗАЦИЯ...";
 
-            btn.innerHTML = "ИНИЦИАЛИЗАЦИЯ...";
+    // полезно на Android: “подготовить” видео
+    video.load();
 
-            // 1. Предварительно подготавливаем видео
-            video.load();
+    const startSystem = async () => {
+      const system = sceneEl.systems["mindar-image-system"];
+      if (!system) {
+        alert("MindAR system not found");
+        return;
+      }
 
-            // 2. Проверяем, загружена ли сцена
-            const startSystem = () => {
-                const system = sceneEl.systems["mindar-image-system"];
-                if (system) {
-                    system.start();
-                    overlay.style.display = 'none';
-                    guide.style.display = 'block';
-                } else {
-                    alert("Ошибка: Система MindAR не найдена. Попробуйте обновить страницу.");
-                }
-            };
+      // События MindAR (очень важно для диагностики)
+      sceneEl.addEventListener("arReady", () => console.log("arReady"));
+      sceneEl.addEventListener("arError", (e) => {
+        console.log("arError", e);
+        alert("AR error (см. консоль).");
+      });
 
-            if (sceneEl.hasLoaded) {
-                startSystem();
-            } else {
-                sceneEl.addEventListener('loaded', startSystem);
-            }
-        }
-    </script>
+      try {
+        console.log("Starting MindAR...");
+        await system.start(); // <-- вот это ключевое
+        console.log("MindAR started");
+
+        overlay.style.display = "none";
+        guide.style.display = "block";
+      } catch (e) {
+        console.log("system.start() failed:", e);
+        alert(`start failed: ${e?.name || ''} ${e?.message || e}`);
+      }
+    };
+
+    if (sceneEl.hasLoaded) startSystem();
+    else sceneEl.addEventListener('loaded', startSystem, { once: true });
+  }
+</script>
 </head>
 <body>
 
