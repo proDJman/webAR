@@ -30,47 +30,59 @@
     </style>
 
 <script>
-  function startAR() {
+  // 1) Дизейблим кнопку пока сцена не готова
+  window.addEventListener("DOMContentLoaded", () => {
+    const sceneEl = document.querySelector("a-scene");
+    const btn = document.getElementById("btn");
+    const status = document.getElementById("status");
+
+    btn.disabled = true;
+    btn.style.opacity = "0.6";
+    status.textContent = "Загрузка сцены...";
+
+    sceneEl.addEventListener("loaded", () => {
+      btn.disabled = false;
+      btn.style.opacity = "1";
+      status.textContent = "Готово. Нажми «ЗАПУСТИТЬ AR»";
+    }, { once: true });
+  });
+
+  async function startAR() {
     const sceneEl = document.querySelector('a-scene');
     const overlay = document.getElementById('overlay');
     const btn = document.getElementById('btn');
     const guide = document.getElementById('guide');
     const video = document.getElementById('ar-video');
+    const status = document.getElementById('status');
 
     btn.innerHTML = "ИНИЦИАЛИЗАЦИЯ...";
+    status.textContent = "Запрос камеры...";
 
-    // полезно на Android: “подготовить” видео
-    video.load();
+    // Логи/ошибки MindAR — чтобы не было “тишины”
+    sceneEl.addEventListener("arReady", () => console.log("arReady"), { once: true });
+    sceneEl.addEventListener("arError", (e) => {
+      console.log("arError", e);
+      alert("AR error. Открой консоль и пришли лог.");
+    });
 
-    const startSystem = async () => {
+    try {
       const system = sceneEl.systems["mindar-image-system"];
-      if (!system) {
-        alert("MindAR system not found");
-        return;
-      }
+      if (!system) throw new Error("MindAR system not found");
 
-      // События MindAR (очень важно для диагностики)
-      sceneEl.addEventListener("arReady", () => console.log("arReady"));
-      sceneEl.addEventListener("arError", (e) => {
-        console.log("arError", e);
-        alert("AR error (см. консоль).");
-      });
+      video.load();
 
-      try {
-        console.log("Starting MindAR...");
-        await system.start(); // <-- вот это ключевое
-        console.log("MindAR started");
+      // ВАЖНО: await + старт прямо из клика
+      await system.start();
 
-        overlay.style.display = "none";
-        guide.style.display = "block";
-      } catch (e) {
-        console.log("system.start() failed:", e);
-        alert(`start failed: ${e?.name || ''} ${e?.message || e}`);
-      }
-    };
-
-    if (sceneEl.hasLoaded) startSystem();
-    else sceneEl.addEventListener('loaded', startSystem, { once: true });
+      overlay.style.display = 'none';
+      guide.style.display = 'block';
+      console.log("MindAR started");
+    } catch (e) {
+      console.log("start failed:", e);
+      alert(`start failed: ${e?.name || ''} ${e?.message || e}`);
+      btn.innerHTML = "ЗАПУСТИТЬ AR";
+      status.textContent = "Ошибка запуска";
+    }
   }
 </script>
 </head>
