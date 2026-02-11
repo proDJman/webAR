@@ -30,73 +30,58 @@
     </style>
 
 <script>
+async function startAR() {
+  const sceneEl = document.querySelector("a-scene");
+  const btn = document.getElementById("btn");
+  const overlay = document.getElementById("overlay");
+  const guide = document.getElementById("guide");
+  const video = document.getElementById("ar-video");
 
-function dlog(...args) {
-  const el = document.getElementById("debug");
-  const msg = args.map(a =>
-    typeof a === "object" ? JSON.stringify(a) : String(a)
-  ).join(" ");
+  btn.innerHTML = "ИНИЦИАЛИЗАЦИЯ...";
+  dlog("▶ startAR click");
+  dlog("secureContext:", window.isSecureContext);
+  dlog("userAgent:", navigator.userAgent);
 
-  console.log(...args);
-  if (el) {
-    el.textContent += "\n" + msg;
-    el.scrollTop = el.scrollHeight;
+  // --- permissions api (если есть)
+  if (navigator.permissions) {
+    try {
+      const p = await navigator.permissions.query({ name: "camera" });
+      dlog("camera permission state:", p.state);
+    } catch (e) {
+      dlog("permissions query error", e);
+    }
+  } else {
+    dlog("permissions API not available");
+  }
+
+  // --- MindAR events
+  sceneEl.addEventListener("arReady", () => dlog("✅ arReady"));
+  sceneEl.addEventListener("arError", e => dlog("❌ arError", e));
+
+  try {
+    const system = sceneEl.systems["mindar-image-system"];
+    if (!system) throw new Error("mindar-image-system NOT FOUND");
+
+    dlog("MindAR system found");
+    dlog("Calling system.start()...");
+
+    video.load();
+
+    const t0 = performance.now();
+    await system.start();
+    const t1 = performance.now();
+
+    dlog(`✅ system.start() OK (${((t1 - t0)/1000).toFixed(1)}s)`);
+
+    overlay.style.display = "none";
+    guide.style.display = "block";
+
+  } catch (e) {
+    dlog("❌ START FAILED");
+    dlog(e.name || "error", e.message || e);
+    btn.innerHTML = "ЗАПУСТИТЬ AR";
   }
 }
-  // 1) Дизейблим кнопку пока сцена не готова
-  window.addEventListener("DOMContentLoaded", () => {
-    const sceneEl = document.querySelector("a-scene");
-    const btn = document.getElementById("btn");
-    const status = document.getElementById("status");
-
-    btn.disabled = true;
-    btn.style.opacity = "0.6";
-    status.textContent = "Загрузка сцены...";
-
-    sceneEl.addEventListener("loaded", () => {
-      btn.disabled = false;
-      btn.style.opacity = "1";
-      status.textContent = "Готово. Нажми «ЗАПУСТИТЬ AR»";
-    }, { once: true });
-  });
-
-  async function startAR() {
-    const sceneEl = document.querySelector('a-scene');
-    const overlay = document.getElementById('overlay');
-    const btn = document.getElementById('btn');
-    const guide = document.getElementById('guide');
-    const video = document.getElementById('ar-video');
-    const status = document.getElementById('status');
-
-    btn.innerHTML = "ИНИЦИАЛИЗАЦИЯ...";
-    status.textContent = "Запрос камеры...";
-
-    // Логи/ошибки MindAR — чтобы не было “тишины”
-    sceneEl.addEventListener("arReady", () => console.log("arReady"), { once: true });
-    sceneEl.addEventListener("arError", (e) => {
-      console.log("arError", e);
-      alert("AR error. Открой консоль и пришли лог.");
-    });
-
-    try {
-      const system = sceneEl.systems["mindar-image-system"];
-      if (!system) throw new Error("MindAR system not found");
-
-      video.load();
-
-      // ВАЖНО: await + старт прямо из клика
-      await system.start();
-
-      overlay.style.display = 'none';
-      guide.style.display = 'block';
-      console.log("MindAR started");
-    } catch (e) {
-      console.log("start failed:", e);
-      alert(`start failed: ${e?.name || ''} ${e?.message || e}`);
-      btn.innerHTML = "ЗАПУСТИТЬ AR";
-      status.textContent = "Ошибка запуска";
-    }
-  }
 </script>
 </head>
 <body>
