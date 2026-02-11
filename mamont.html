@@ -101,6 +101,47 @@
         });
       }
     });
+	AFRAME.registerComponent('pose-smoothing', {
+  schema: {
+    posAlpha: { type: 'number', default: 0.15 }, // 0..1 (меньше = сильнее сглаживание)
+    rotAlpha: { type: 'number', default: 0.12 }
+  },
+  init() {
+    this.tmpPos = new THREE.Vector3();
+    this.tmpQuat = new THREE.Quaternion();
+    this.curPos = new THREE.Vector3();
+    this.curQuat = new THREE.Quaternion();
+    this.inited = false;
+  },
+  tick() {
+    // Берём "сырую" позу из object3D (её MindAR обновляет сам)
+    const o = this.el.object3D;
+
+    o.getWorldPosition(this.tmpPos);
+    o.getWorldQuaternion(this.tmpQuat);
+
+    if (!this.inited) {
+      this.curPos.copy(this.tmpPos);
+      this.curQuat.copy(this.tmpQuat);
+      this.inited = true;
+    } else {
+      this.curPos.lerp(this.tmpPos, this.data.posAlpha);
+      this.curQuat.slerp(this.tmpQuat, this.data.rotAlpha);
+    }
+
+    // Применяем сглаженную позу обратно (локально)
+    // Важно: работаем с local transform, поэтому переводим в local координаты родителя
+    if (o.parent) {
+      const parentInv = new THREE.Matrix4().copy(o.parent.matrixWorld).invert();
+
+      const m = new THREE.Matrix4().compose(this.curPos, this.curQuat, new THREE.Vector3(1,1,1));
+      m.premultiply(parentInv);
+
+      m.decompose(o.position, o.quaternion, o.scale);
+      o.matrixWorldNeedsUpdate = true;
+    }
+  }
+});
   </script>
 </head>
 
