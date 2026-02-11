@@ -144,7 +144,7 @@
         position="0 0 0"
         scale="1 1 1"
         rotation="0 -90 0"
-        animation-mixer="clip: GltfAnimation 0; loop: repeat"
+        animation-mixer="clip: Gesture; loop: repeat"
       ></a-gltf-model>
     </a-entity>
   </a-scene>
@@ -181,26 +181,43 @@
         setStatus("Не удалось запустить камеру/AR. Проверьте разрешения и HTTPS.");
       });
 
-      startBtn.addEventListener("click", async () => {
-        try {
-          startBtn.disabled = true;
-          spinner.style.display = "block";
-          setStatus("Запрашиваем доступ к камере…");
+startBtn.addEventListener("click", async () => {
+  const mindar = scene.systems["mindar-image-system"];
+  if (!mindar) {
+    setStatus("MindAR не найден (mindar-image-system).");
+    return;
+  }
 
-          // Запуск MindAR по клику (важно для iOS)
-          const mindar = scene.systems["mindar-image-system"];
-          if (!mindar) throw new Error("mindar-image-system not found");
-          await mindar.start();
+  const lockUi = (locked, text) => {
+    startBtn.disabled = locked;
+    spinner.style.display = locked ? "block" : "none";
+    setStatus(text || "");
+  };
 
-          // arReady придёт сам и переключит UI
-          setStatus("Инициализация AR…");
-        } catch (err) {
-          console.log("start error:", err);
-          spinner.style.display = "none";
-          startBtn.disabled = false;
-          setStatus("Доступ к камере не получен. Разрешите камеру в настройках браузера.");
-        }
-      });
+  try {
+    lockUi(true, "Запрашиваем доступ к камере…");
+
+    // 1) НАТИВНЫЙ ПРОМПТ СРАЗУ (iOS любит только так)
+    // берём поток и сразу останавливаем, чтобы не конфликтовать с MindAR
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: "environment" },
+      audio: false
+    });
+    stream.getTracks().forEach(t => t.stop());
+
+    // 2) теперь запускаем MindAR (камера уже разрешена)
+    lockUi(true, "Инициализация AR…");
+    await mindar.start();
+
+    // arReady сам закроет стартовый экран (как у тебя сделано)
+  } catch (err) {
+    console.log("start error:", err);
+
+    // Важно: если юзер нажал "Запретить", iOS может дальше молчать.
+    // Тогда надо отправить в Settings/разрешения браузера.
+    lockUi(false, "Камера не разрешена. Разрешите камеру в настройках браузера/сайта (Safari/Chrome).");
+  }
+});
     });
   </script>
 </body>
