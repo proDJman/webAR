@@ -12,29 +12,14 @@
         body { margin: 0; overflow: hidden; background: #000; }
         
         /* Видео на весь экран */
- #ar-video {
-    position: absolute;
-    top: 0; left: 0;
-    width: 100%; height: 100%;
-    object-fit: cover;
-    z-index: 999;
-
-    /* вместо display:none */
-    display: block;
-    opacity: 0;
-    visibility: hidden;
-    pointer-events: none;
-
-    transition: opacity 450ms ease, transform 450ms ease;
-    transform: scale(1.02);
-  }
-
-  #ar-video.is-visible{
-    opacity: 1;
-    visibility: visible;
-    pointer-events: auto;
-    transform: scale(1.0);
-  }
+        #ar-video {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            object-fit: cover;
+            z-index: 999; /* Максимальный приоритет */
+            display: none; 
+        }
 
         #guide-overlay {
             position: absolute;
@@ -102,66 +87,6 @@
             guide.style.display = 'block';
         }
     </script>
-	<script>
-  function showVideo() {
-    const video = document.querySelector('#ar-video');
-    video.classList.add('is-visible');
-  }
-
-  function hideVideo() {
-    const video = document.querySelector('#ar-video');
-    video.classList.remove('is-visible');
-  }
-
-  AFRAME.registerComponent('video-handler', {
-    init: function () {
-      const video = document.querySelector('#ar-video');
-      const closeBtn = document.querySelector('#close-btn');
-      const guide = document.querySelector('#guide-overlay');
-
-      // если НЕ loop — можно фейдить на конце
-      video.addEventListener('ended', () => {
-        closeVideo(true); // true => без резкого скрытия
-      });
-
-      this.el.addEventListener('targetFound', () => {
-        console.log("Маркер найден!");
-        guide.style.display = 'none';
-        closeBtn.style.display = 'block';
-
-        showVideo();
-
-        video.play().catch(() => {
-          console.log("Автоплей заблокирован, нужно касание");
-        });
-      });
-    }
-  });
-
-  // smooth=true => сначала fade-out, потом hide
-  function closeVideo(smooth = false) {
-    const video = document.querySelector('#ar-video');
-    const closeBtn = document.querySelector('#close-btn');
-    const guide = document.querySelector('#guide-overlay');
-
-    const finish = () => {
-      video.pause();
-      video.currentTime = 0; // если надо сбрасывать
-      closeBtn.style.display = 'none';
-      guide.style.display = 'block';
-    };
-
-    if (!smooth) {
-      hideVideo();
-      finish();
-      return;
-    }
-
-    hideVideo();
-    // дождаться transition (450ms) и только потом пауза/сброс
-    window.setTimeout(finish, 480);
-  }
-</script>
 </head>
 <body>
 
@@ -193,4 +118,5 @@
   });
 </script>
 </body>
+</html>
 </html>
