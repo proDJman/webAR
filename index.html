@@ -7,7 +7,18 @@
     
 <script  src="./libs/aframe.min.js"></script>
 <script  src="./libs/mindar-image-aframe.prod.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const video = document.querySelector('#ar-video');
 
+scene.addEventListener("arReady", () => {
+  console.log("MindAR ready");
+
+  const video = document.querySelector('#ar-video');
+  video.load();
+});
+});
+</script>
     <style>
         body { margin: 0; overflow: hidden; background: #000; }
         
@@ -200,10 +211,10 @@
     </div>
 
     <div id="scanning-overlay">Наведите на медведя</div>
-    <img id="guide-overlay" src="./targets.jpg">
+    <img id="guide-overlay" src="./mamont.jpg">
 
     <a-scene 
-        mindar-image="imageTargetSrc: ./targets.mind; autoStart: true; uiLoading: no; uiScanning: no;" 
+        mindar-image="imageTargetSrc: ./mamont.mind; autoStart: true; uiLoading: no; uiScanning: no;" 
         vr-mode-ui="enabled: false" 
         device-orientation-permission-ui="enabled: false">
         
