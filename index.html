@@ -18,6 +18,26 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 });
 </script>
+
+<script>
+let videoUnlocked = false;
+
+document.addEventListener("touchstart", () => {
+  if (videoUnlocked) return;
+
+  const video = document.querySelector('#ar-video');
+
+  video.play().then(() => {
+    video.pause();
+    video.currentTime = 0;
+    videoUnlocked = true;
+    console.log("iOS video unlocked");
+  }).catch(()=>{});
+
+}, { once: true });
+</script>
+
+
     <style>
         body { margin: 0; overflow: hidden; background: #000; }
         
@@ -142,7 +162,6 @@ document.addEventListener("DOMContentLoaded", () => {
     stopAndHideVideo(true);
     showScanUI();
   }
-</script>
 </script>
 </head>
 <body>
