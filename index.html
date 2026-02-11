@@ -31,15 +31,7 @@ document.addEventListener("DOMContentLoaded", () => {
             display: none; 
         }
 
-        #guide-overlay {
-            position: absolute;
-            top: 50%; left: 50%;
-            transform: translate(-50%, -50%);
-            width: 70vw;
-            opacity: 0.5;
-            z-index: 5;
-            pointer-events: none;
-        }
+
 
         #scanning-overlay {
             position: absolute;
@@ -77,21 +69,20 @@ document.addEventListener("DOMContentLoaded", () => {
             color:#fff;
             text-align:center;
         }
-
+        #guide-overlay {
+        position: absolute;
+        inset: 0;
+        width: 100vw;
+        height: 100vh;
+        object-fit: cover; /* или contain */
+        opacity: 0.5;
+        z-index: 5;
+        pointer-events: none;
+      }
 
 
         }
 
-        #guide-overlay {
-  position: absolute;
-  inset: 0;
-  width: 100vw;
-  height: 100vh;
-  object-fit: cover;   /* или contain если не хочешь обрезания */
-  opacity: 0.5;
-  z-index: 5;
-  pointer-events: none;
-}
     </style>
 
 <script>
