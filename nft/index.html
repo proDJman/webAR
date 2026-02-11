@@ -1,4 +1,5 @@
-<script defer src="./libs/aframe-master.min.js"></script>
+<script src="./libs/aframe-master.min.js"></script>
+<script src="./libs/aframe-ar-nft.js"></script>
 
 <style>
   .arjs-loader {
@@ -23,7 +24,7 @@
 
 <!-- rawgithack development URL -->
 <!--<script src='https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar-nft.js'></script>-->
-<script defer src="./libs/aframe-ar-nft.js"></script>
+
 
 
 <body style='margin : 0px; overflow: hidden;'>
@@ -49,4 +50,16 @@
         </a-nft>
 		<a-entity camera></a-entity>
     </a-scene>
+	<script>
+  const scene = document.querySelector('a-scene');
+  const loader = document.querySelector('.arjs-loader');
+
+  scene.addEventListener('loaded', () => {
+    loader.style.display = 'none';
+  });
+
+  // если хочешь скрывать именно когда NFT-маркер готов:
+  const nft = document.querySelector('a-nft');
+  nft.addEventListener('markerFound', () => loader.style.display = 'none');
+</script>
 </body>
