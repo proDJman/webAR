@@ -106,6 +106,16 @@
 
         <a-entity mindar-image-target="targetIndex: 0" video-handler></a-entity>
     </a-scene>
+<script>
+  window.addEventListener("error", (e) => console.log("window.error:", e.message));
+  window.addEventListener("unhandledrejection", (e) => console.log("promise:", e.reason));
 
+  document.addEventListener("DOMContentLoaded", () => {
+    const scene = document.querySelector("a-scene");
+    scene.addEventListener("loaded", () => console.log("a-scene loaded"));
+    scene.addEventListener("arReady", () => console.log("MindAR ready"));
+    scene.addEventListener("arError", (e) => console.log("MindAR error", e.detail));
+  });
+</script>
 </body>
 </html>
