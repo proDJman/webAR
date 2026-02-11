@@ -1,125 +1,289 @@
 <!DOCTYPE html>
-<html>
+<html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>WebAR Pixel Fix</title>
-    
-<script defer src="https://aframe.io/releases/1.4.1/aframe.min.js"></script>
-<script defer src="https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.2.2/dist/mindar-image-aframe.prod.js"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>WebAR pseudo</title>
 
-    <style>
-        body { margin: 0; background: #000; font-family: sans-serif; }
-        #overlay {
-            position: fixed; inset: 0; background: #111; z-index: 10000;
-            display: flex; flex-direction: column; align-items: center; justify-content: center; color: white;
-        }
-        #btn {
-            padding: 20px 40px; background: #28a745; color: white; border: none;
-            border-radius: 12px; font-size: 1.2rem; font-weight: bold;
-        }
-        #ar-video {
-            position: fixed; inset: 0; width: 100%; height: 100%;
-            object-fit: cover; z-index: 5000; display: none; background: black;
-        }
-        #guide {
-            position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%);
-            width: 70vw; opacity: 0.4; z-index: 100; display: none; pointer-events: none;
-        }
-        #status { margin-top: 15px; color: #888; font-size: 0.9rem; }
-    </style>
+  <!-- ВАЖНО: defer, чтобы не было гонок на Android -->
+  <script defer src="https://aframe.io/releases/1.4.1/aframe.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.2.2/dist/mindar-image-aframe.prod.js"></script>
 
-<script>
-async function startAR() {
-  const sceneEl = document.querySelector("a-scene");
-  const btn = document.getElementById("btn");
-  const overlay = document.getElementById("overlay");
-  const guide = document.getElementById("guide");
-  const video = document.getElementById("ar-video");
-
-  btn.innerHTML = "ИНИЦИАЛИЗАЦИЯ...";
-  dlog("▶ startAR click");
-  dlog("secureContext:", window.isSecureContext);
-  dlog("userAgent:", navigator.userAgent);
-
-  // --- permissions api (если есть)
-  if (navigator.permissions) {
-    try {
-      const p = await navigator.permissions.query({ name: "camera" });
-      dlog("camera permission state:", p.state);
-    } catch (e) {
-      dlog("permissions query error", e);
+  <style>
+    html, body { margin:0; padding:0; width:100%; height:100%; background:#000; overflow:hidden; }
+    /* UI-оверлей (кнопка, статус, картинка-наводка) */
+    #overlay {
+      position: fixed; inset: 0;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      background: #000;
+      z-index: 1000;
+      padding: 16px;
+      box-sizing: border-box;
+      gap: 12px;
     }
-  } else {
-    dlog("permissions API not available");
-  }
+    #btn {
+      font-size: 18px;
+      padding: 12px 18px;
+      border-radius: 14px;
+      border: 0;
+      background: #1e90ff;
+      color: #fff;
+      width: min(320px, 92vw);
+    }
+    #btn:disabled { opacity: .6; }
 
-  // --- MindAR events
-  sceneEl.addEventListener("arReady", () => dlog("✅ arReady"));
-  sceneEl.addEventListener("arError", e => dlog("❌ arError", e));
+    #status {
+      color: #fff;
+      font: 14px/1.3 system-ui, -apple-system, Segoe UI, Roboto, Arial;
+      text-align: center;
+      max-width: min(360px, 92vw);
+      opacity: .9;
+    }
 
-  try {
-    const system = sceneEl.systems["mindar-image-system"];
-    if (!system) throw new Error("mindar-image-system NOT FOUND");
+    /* Оверлей-навода (фото экспоната/мишени) */
+    #guide {
+      position: fixed; inset: 0;
+      display: none;
+      z-index: 900;
+      pointer-events: none;
+      background: center / contain no-repeat url("./targets.jpg"); /* <-- твой файл */
+      opacity: 0.35;
+      mix-blend-mode: screen;
+    }
 
-    dlog("MindAR system found");
-    dlog("Calling system.start()...");
+    /* Видео на весь экран */
+    #videoWrap {
+      position: fixed; inset: 0;
+      display: none;
+      z-index: 2000;
+      background: #000;
+    }
+    #ar-video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      background: #000;
+    }
 
-    video.load();
+    /* Debug лог на экран */
+    #debug {
+      position: fixed;
+      bottom: 0; left: 0;
+      width: 100%;
+      max-height: 45%;
+      overflow-y: auto;
+      background: rgba(0,0,0,0.85);
+      color: #00ff90;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      font-size: 12px;
+      padding: 8px;
+      z-index: 3000;
+      white-space: pre-wrap;
+      box-sizing: border-box;
+    }
 
-    const t0 = performance.now();
-    await system.start();
-    const t1 = performance.now();
-
-    dlog(`✅ system.start() OK (${((t1 - t0)/1000).toFixed(1)}s)`);
-
-    overlay.style.display = "none";
-    guide.style.display = "block";
-
-  } catch (e) {
-    dlog("❌ START FAILED");
-    dlog(e.name || "error", e.message || e);
-    btn.innerHTML = "ЗАПУСТИТЬ AR";
-  }
-}
-</script>
+    /* ВАЖНО: A-Frame canvas под UI */
+    a-scene { position: fixed !important; inset: 0 !important; z-index: 10; }
+  </style>
 </head>
+
 <body>
-<div id="debug"
-     style="
-       position: fixed;
-       bottom: 0;
-       left: 0;
-       width: 100%;
-       max-height: 45%;
-       overflow-y: auto;
-       background: rgba(0,0,0,0.85);
-       color: #00ff90;
-       font-family: monospace;
-       font-size: 12px;
-       padding: 8px;
-       z-index: 9999;
-       white-space: pre-wrap;
-     ">
-DEBUG LOG:
-</div>
-    <div id="overlay">
-        <button id="btn" onclick="startAR()">ЗАПУСТИТЬ AR</button>
-        <div id="status">Pixel 5 / Android Optimized</div>
+  <!-- A-Frame / MindAR сцена -->
+  <a-scene
+    mindar-image="
+      imageTargetSrc: ./targets.mind;
+      autoStart: false;
+      uiLoading: no;
+      uiScanning: no;
+      videoSettings: { facingMode: 'environment', width: 640, height: 480 };
+    "
+    color-space="sRGB"
+    embedded
+    vr-mode-ui="enabled: false"
+    device-orientation-permission-ui="enabled: false"
+  >
+    <a-assets>
+      <!-- Если нужно — модели можно сюда, но они не обязательны для твоего кейса -->
+    </a-assets>
+
+    <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+
+    <!-- Точка-мишень. index="0" значит первая цель в targets.mind -->
+    <a-entity id="target0" mindar-image-target="targetIndex: 0"></a-entity>
+  </a-scene>
+
+  <!-- Оверлей-картинка для наведения -->
+  <div id="guide"></div>
+
+  <!-- UI-оверлей до запуска -->
+  <div id="overlay">
+    <button id="btn" onclick="startAR()">ЗАПУСТИТЬ AR</button>
+    <div id="status">Загрузка движка...</div>
+    <div style="color:#bbb;font:12px system-ui;max-width:min(360px,92vw);text-align:center;">
+      Совет: открывай в Chrome, не во встроенном браузере (Telegram/Instagram).
     </div>
+  </div>
 
-    <img id="guide" src="./targets.jpg">
-    
-    <video id="ar-video" src="./mamont.mp4" playsinline webkit-playsinline loop muted preload="none"></video>
+  <!-- Видео на весь экран -->
+  <div id="videoWrap">
+    <video id="ar-video"
+           src="./mamont.mp4"
+           playsinline
+           webkit-playsinline
+           controls
+           preload="metadata"></video>
+  </div>
 
-    <a-scene 
-        mindar-image="imageTargetSrc: ./targets.mind; autoStart: false; uiLoading: no; uiScanning: no;" 
-        embedded vr-mode-ui="enabled: false"
-        device-orientation-permission-ui="enabled: false">
-        
-        <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
-        <a-entity mindar-image-target="targetIndex: 0" video-handler></a-entity>
-    </a-scene>
+  <!-- Debug -->
+  <div id="debug">DEBUG LOG:</div>
 
+  <script>
+    function dlog(...args) {
+      const el = document.getElementById("debug");
+      const msg = args.map(a => (typeof a === "object" ? JSON.stringify(a) : String(a))).join(" ");
+      console.log(...args);
+      if (el) {
+        el.textContent += "\n" + msg;
+        el.scrollTop = el.scrollHeight;
+      }
+    }
+
+    // Ждём, пока реально появится mindar-image-system, тогда включаем кнопку
+    window.addEventListener("DOMContentLoaded", () => {
+      const sceneEl = document.querySelector("a-scene");
+      const btn = document.getElementById("btn");
+      const status = document.getElementById("status");
+
+      btn.disabled = true;
+      status.textContent = "Загрузка сцены...";
+
+      dlog("secureContext:", window.isSecureContext);
+      dlog("UA:", navigator.userAgent);
+
+      sceneEl.addEventListener("loaded", () => dlog("✅ a-scene loaded"), { once: true });
+
+      const waitReady = () => {
+        const ok =
+          window.AFRAME &&
+          sceneEl &&
+          sceneEl.hasLoaded &&
+          sceneEl.systems &&
+          sceneEl.systems["mindar-image-system"];
+
+        if (ok) {
+          btn.disabled = false;
+          status.textContent = "Готово. Нажми «ЗАПУСТИТЬ AR»";
+          dlog("✅ Ready: AFRAME + scene + mindar system");
+          return;
+        }
+        requestAnimationFrame(waitReady);
+      };
+
+      waitReady();
+    });
+
+    let hasStarted = false;
+
+    async function startAR() {
+      if (hasStarted) return;
+      hasStarted = true;
+
+      const sceneEl  = document.querySelector("a-scene");
+      const overlay  = document.getElementById("overlay");
+      const btn      = document.getElementById("btn");
+      const status   = document.getElementById("status");
+      const guide    = document.getElementById("guide");
+      const video    = document.getElementById("ar-video");
+      const videoWrap= document.getElementById("videoWrap");
+      const target0  = document.getElementById("target0");
+
+      btn.textContent = "ИНИЦИАЛИЗАЦИЯ...";
+      status.textContent = "Запрос камеры...";
+      dlog("▶ startAR click");
+
+      // Поймаем события MindAR
+      sceneEl.addEventListener("arReady", () => dlog("✅ arReady"), { once: true });
+      sceneEl.addEventListener("arError", (e) => {
+        dlog("❌ arError", e);
+        alert("AR error (см. debug лог).");
+      });
+
+      // Поймаем target found/lost
+      target0.addEventListener("targetFound", () => {
+        dlog("🎯 targetFound");
+        playFullscreenVideo();
+      });
+      target0.addEventListener("targetLost", () => {
+        dlog("… targetLost");
+      });
+
+      // Доп. проверка permissions (если доступно)
+      if (navigator.permissions) {
+        try {
+          const p = await navigator.permissions.query({ name: "camera" });
+          dlog("camera permission state:", p.state);
+        } catch (e) {
+          dlog("permissions query error:", e);
+        }
+      }
+
+      try {
+        const system = sceneEl?.systems?.["mindar-image-system"];
+        if (!system) {
+          hasStarted = false;
+          btn.textContent = "ЗАПУСТИТЬ AR";
+          status.textContent = "Движок ещё загружается...";
+          dlog("⏳ MindAR not ready yet (system missing)");
+          alert("Движок ещё загружается. Подожди 1–2 секунды и нажми ещё раз.");
+          return;
+        }
+
+        // Подготовим видео (не стартуем ещё)
+        video.load();
+
+        dlog("Calling system.start()...");
+        const t0 = performance.now();
+        await system.start();
+        const t1 = performance.now();
+        dlog(`✅ system.start() OK (${((t1 - t0)/1000).toFixed(1)}s)`);
+
+        // Скрываем стартовый оверлей, показываем guide-оверлей
+        overlay.style.display = "none";
+        guide.style.display = "block";
+        dlog("Guide overlay ON");
+
+        // Мягкая подсказка, если человек не понимает что делать
+        setTimeout(() => {
+          dlog("Tip: наведи камеру на экспонат/картинку-мишень");
+        }, 500);
+
+      } catch (e) {
+        dlog("❌ START FAILED");
+        dlog(e?.name || "error", e?.message || e);
+        alert(`start failed: ${e?.name || ''} ${e?.message || e}`);
+        btn.textContent = "ЗАПУСТИТЬ AR";
+        status.textContent = "Ошибка запуска";
+        hasStarted = false;
+      }
+
+      async function playFullscreenVideo() {
+        // Снимаем трекинг-UI, включаем видео-слой
+        guide.style.display = "none";
+        videoWrap.style.display = "block";
+
+        try {
+          // На iOS/Android fullscreen может потребовать user gesture.
+          // Поэтому держим controls включёнными и показываем видео поверх.
+          await video.play();
+          dlog("▶ video.play() OK");
+        } catch (e) {
+          dlog("❌ video.play() failed", e);
+          // Фолбэк: пусть человек тапнет Play
+          alert("Нажми Play на видео (ограничения браузера).");
+        }
+      }
+    }
+  </script>
 </body>
 </html>
