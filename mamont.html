@@ -148,16 +148,8 @@
 
 <body>
   <!-- СТАРТОВЫЙ ЭКРАН (пока нет разрешения камеры) -->
-  <div id="start-screen">
-    <div id="start-title">Загрузка…</div>
-    <div id="start-subtitle">
-      Нажмите кнопку ниже, чтобы разрешить доступ к камере.
-      После этого появится подсказка-оверлей для наведения на экспонат.
-    </div>
-    <div id="spinner"></div>
-    <div id="status"></div>
-    <button id="start-btn" class="btn">Включить камеру</button>
-  </div>
+#spinner { display: block; }
+#status { font-size: 12px; opacity: 0.6; min-height: 14px; }
 
   <!-- ТВОИ ОВЕРЛЕИ (покажем только после старта AR) -->
   <div id="scanning-overlay">Наведите на метку</div>
@@ -195,70 +187,89 @@
     window.addEventListener("error", (e) => console.log("window.error:", e.message));
     window.addEventListener("unhandledrejection", (e) => console.log("promise:", e.reason));
 
-    document.addEventListener("DOMContentLoaded", () => {
-      const scene = document.querySelector("a-scene");
+document.addEventListener("DOMContentLoaded", () => {
+  const scene = document.querySelector("a-scene");
 
-      const startScreen = document.querySelector("#start-screen");
-      const startBtn = document.querySelector("#start-btn");
-      const spinner = document.querySelector("#spinner");
-      const status = document.querySelector("#status");
+  const startScreen = document.querySelector("#start-screen");
+  const spinner = document.querySelector("#spinner");
+  const status = document.querySelector("#status");
 
-      const guide = document.querySelector("#guide-overlay");
-      const scanning = document.querySelector("#scanning-overlay");
+  const guide = document.querySelector("#guide-overlay");
+  const scanning = document.querySelector("#scanning-overlay");
 
-      const setStatus = (t) => { status.textContent = t || ""; };
+  const setStatus = (t) => { status.textContent = t || ""; };
+  const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
-      // Когда AR реально готов (камера уже выдана и трекинг поднялся)
-      scene.addEventListener("arReady", () => {
-        console.log("MindAR ready");
-        startScreen.style.display = "none";
-        guide.style.display = "block";
-        scanning.style.display = "block";
+  let started = false;
+
+  // Когда AR реально готов (камера уже выдана и трекинг поднялся)
+  scene.addEventListener("arReady", () => {
+    console.log("MindAR ready");
+    startScreen.style.display = "none";
+    guide.style.display = "block";
+    scanning.style.display = "block";
+  });
+
+  scene.addEventListener("arError", (e) => {
+    console.log("MindAR error", e.detail);
+    // Без длинных надписей — только короткая подсказка
+    setStatus("Тапните по экрану, чтобы включить камеру");
+    started = false;
+  });
+
+  async function startAR() {
+    if (started) return;
+    started = true;
+
+    try {
+      setStatus("");              // без текста
+      spinner.style.display = "block";
+
+      // ВАЖНО: нативный prompt (только в user gesture)
+      setStatus(""); // если хочешь — можно "Камера…" (но ты просил без текста)
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment" },
+        audio: false
       });
+      stream.getTracks().forEach(t => t.stop());
 
-      scene.addEventListener("arError", (e) => {
-        console.log("MindAR error", e.detail);
-        spinner.style.display = "none";
-        startBtn.disabled = false;
-        setStatus("Не удалось запустить камеру/AR. Проверьте разрешения и HTTPS.");
-      });
+      // iOS: дать время “отпустить” камеру перед MindAR
+      await sleep(900);
 
-startBtn.addEventListener("click", async () => {
-  const mindar = scene.systems["mindar-image-system"];
-  if (!mindar) {
-    setStatus("MindAR не найден (mindar-image-system).");
-    return;
+      const mindar = scene.systems["mindar-image-system"];
+      if (!mindar) throw new Error("mindar-image-system not found");
+
+      // Пара попыток старта, чтобы не требовать “второго тапа”
+      let ok = false;
+      for (let i = 0; i < 3; i++) {
+        try {
+          await mindar.start();
+          ok = true;
+          break;
+        } catch (e) {
+          console.log("mindar.start retry", i + 1, e);
+          await sleep(700 + i * 300);
+        }
+      }
+      if (!ok) throw new Error("mindar.start failed");
+
+      // дальше ждём arReady (он сам скроет прелоадер)
+    } catch (err) {
+      console.log("start error:", err);
+      started = false;
+      // коротко, без простыней
+      setStatus("Тапните по экрану, чтобы включить камеру");
+    }
   }
 
-  const lockUi = (locked, text) => {
-    startBtn.disabled = locked;
-    spinner.style.display = locked ? "block" : "none";
-    setStatus(text || "");
-  };
+  // “Жест без кнопки”: первый тап/клик в любом месте
+  const onFirstGesture = () => startAR();
+  window.addEventListener("touchend", onFirstGesture, { passive: true });
+  window.addEventListener("click", onFirstGesture);
 
-  try {
-    lockUi(true, "Запрашиваем доступ к камере…");
-
-    // 1) НАТИВНЫЙ ПРОМПТ СРАЗУ (iOS любит только так)
-    // берём поток и сразу останавливаем, чтобы не конфликтовать с MindAR
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: "environment" },
-      audio: false
-    });
-    stream.getTracks().forEach(t => t.stop());
-
-    // 2) теперь запускаем MindAR (камера уже разрешена)
-    lockUi(true, "Инициализация AR…");
-    await mindar.start();
-
-    // arReady сам закроет стартовый экран (как у тебя сделано)
-  } catch (err) {
-    console.log("start error:", err);
-
-    // Важно: если юзер нажал "Запретить", iOS может дальше молчать.
-    // Тогда надо отправить в Settings/разрешения браузера.
-    lockUi(false, "Камера не разрешена. Разрешите камеру в настройках браузера/сайта (Safari/Chrome).");
-  }
+  // Можно попробовать автозапускнуть, но на iOS это чаще всего не откроет prompt —
+  // оставляем, чтобы на Android/desktop могло стартануть сразу.
+  startAR();
 });
     });
   </script>
