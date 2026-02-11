@@ -52,6 +52,34 @@
             display: none;
             cursor: pointer;
             font-weight: bold;
+
+              #restart-overlay{
+            position:absolute;
+            inset:0;
+            background: rgba(0,0,0,0.75);
+            z-index: 2000;
+            display:none;
+            align-items:center;
+            justify-content:center;
+            flex-direction:column;
+            gap: 16px;
+            font-family: sans-serif;
+            color:#fff;
+            text-align:center;
+        }
+        #restart-text{
+            font-size: 20px;
+            opacity: 0.95;
+        }
+        #restart-btn{
+            padding: 12px 18px;
+            border-radius: 999px;
+            border: 0;
+            cursor: pointer;
+            font-weight: 700;
+  }
+
+
         }
     </style>
 
@@ -92,7 +120,11 @@
 
     <button id="close-btn" onclick="closeVideo()">✕</button>
     
-    <video id="ar-video" src="./mamont.mp4" preload="auto" playsinline webkit-playsinline muted loop></video>
+    <video id="ar-video" src="./mamont.mp4" preload="auto" playsinline webkit-playsinline muted></video>
+    <div id="restart-overlay">
+    <div id="restart-text">Видео завершено</div>
+    <button id="restart-btn">Начать заново</button>
+    </div>
 
     <div id="scanning-overlay">Наведите на медведя</div>
     <img id="guide-overlay" src="./targets.jpg">
