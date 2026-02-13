@@ -1,213 +1,161 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WebAR Video Test</title>
-    
-<script  src="./libs/aframe.min.js"></script>
-<script  src="./libs/mindar-image-aframe.prod.js"></script>
-<script>
-document.addEventListener("DOMContentLoaded", () => {
-  const scene = document.querySelector("a-scene");
-  const video = document.querySelector('#ar-video');
-
-  scene.addEventListener("arReady", () => {
-    console.log("MindAR ready -> preload video");
-    video.load();
-  });
-});
-</script>
-
-<script>
-let videoUnlocked = false;
-
-document.addEventListener("touchstart", () => {
-  if (videoUnlocked) return;
-
-  const video = document.querySelector('#ar-video');
-
-  video.play().then(() => {
-    video.pause();
-    video.currentTime = 0;
-    videoUnlocked = true;
-    console.log("iOS video unlocked");
-  }).catch(()=>{});
-
-}, { once: true });
-</script>
-
-
-    <style>
-        body { margin: 0; overflow: hidden; background: #000; }
-        
-        /* Видео на весь экран */
-        #ar-video {
-            position: absolute;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            object-fit: cover;
-            z-index: 999; /* Максимальный приоритет */
-            display: none; 
-        }
-
-
-
-        #scanning-overlay {
-            position: absolute;
-            bottom: 20px; left: 0; right: 0;
-            text-align: center;
-            color: white;
-            z-index: 10;
-            font-family: sans-serif;
-            text-shadow: 0 0 5px black;
-        }
-
-        /* Кнопка закрытия видео */
-		#close-btn {
-			position: absolute;
-			top: 20px;
-			right: 20px;
-
-			width: 50px;
-			height: 50px;
-
-			display: none;
-			align-items: center;
-			justify-content: center;
-
-			background: rgba(255,255,255,0.8);
-			border: none;
-			border-radius: 50%;
-
-			font-size: 22px;
-			font-weight: bold;
-			cursor: pointer;
-
-			z-index: 1000;
-		}
-		#close-btn {
-		display: flex;
-		}
-        #guide-overlay {
-        position: absolute;
-        inset: 0;
-        width: 100vw;
-        height: 100vh;
-        object-fit: cover; /* или contain */
-        opacity: 0.5;
-        z-index: 5;
-        pointer-events: none;
-      }
-
-
-        
-
-    </style>
-
-<script>
-  let isTargetVisible = false;
-
-  function stopAndHideVideo(resetTime = true) {
-    const video = document.querySelector('#ar-video');
-    const closeBtn = document.querySelector('#close-btn');
-    video.pause();
-    if (resetTime) video.currentTime = 0;
-    video.style.display = 'none';
-    closeBtn.style.display = 'none';
-  }
-
-  function showScanUI() {
-    const guide = document.querySelector('#guide-overlay');
-    const scanning = document.querySelector('#scanning-overlay');
-    guide.style.display = 'block';
-    scanning.style.display = 'block';
-  }
-
-  function hideScanUI() {
-    const guide = document.querySelector('#guide-overlay');
-    const scanning = document.querySelector('#scanning-overlay');
-    guide.style.display = 'none';
-    scanning.style.display = 'none';
-  }
-
-  function playFromStartIfAllowed() {
-    const video = document.querySelector('#ar-video');
-    const closeBtn = document.querySelector('#close-btn');
-
-    video.currentTime = 0;
-    video.style.display = 'block';
-	closeBtn.style.display = 'flex';
-
-    video.play().catch(() => {
-      console.log("Автоплей заблокирован, нужно касание");
-    });
-  }
-
-  AFRAME.registerComponent('video-handler', {
-    init: function () {
-      const video = document.querySelector('#ar-video');
-
-      // Когда видео закончилось — просто вернуться в режим сканирования
-      video.addEventListener('ended', () => {
-        stopAndHideVideo(true);
-        showScanUI();
-      });
-
-		this.el.addEventListener('targetFound', () => {
-		  console.log("Маркер найден!");
-
-		  if (video.style.display === 'block') return; // уже играет
-
-		  hideScanUI();
-		  playFromStartIfAllowed();
-		});
-
-		this.el.addEventListener('targetLost', () => {
-		  console.log("Маркер потерян!");
-		  isTargetVisible = false;
-		  // НИЧЕГО НЕ ДЕЛАЕМ
-		});
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover" />
+  <title>Оживи экспонат</title>
+  <style>
+    :root{
+      --bg: #0b0b0f;
+      --card: rgba(255,255,255,0.08);
+      --card2: rgba(255,255,255,0.12);
+      --text: rgba(255,255,255,0.92);
+      --muted: rgba(255,255,255,0.65);
+      --radius: 18px;
     }
-  });
 
-  function closeVideo() {
-    isTargetVisible = false;
-    stopAndHideVideo(true);
-    showScanUI();
-  }
-</script>
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body{
+      margin: 0;
+      background: radial-gradient(1200px 800px at 50% -10%, rgba(255,255,255,0.08), transparent 60%),
+                  radial-gradient(900px 700px at 10% 110%, rgba(255,255,255,0.06), transparent 55%),
+                  var(--bg);
+      color: var(--text);
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    }
+
+    .wrap{
+      min-height: 100%;
+      padding: max(18px, env(safe-area-inset-top)) 18px max(18px, env(safe-area-inset-bottom));
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .header{
+      width: min(720px, 100%);
+      text-align: center;
+      padding: 8px 6px 2px;
+    }
+
+    h1{
+      margin: 0;
+      font-size: clamp(22px, 3.5vw, 34px);
+      letter-spacing: 0.2px;
+    }
+
+    .sub{
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.35;
+    }
+
+    .grid{
+      width: min(720px, 100%);
+      display: grid;
+      grid-template-columns: 1fr 1fr; /* 2 столбика */
+      gap: 12px;
+      margin-top: 8px;
+    }
+
+    .card{
+      position: relative;
+      display: block;
+      border-radius: var(--radius);
+      overflow: hidden;
+      background: var(--card);
+      border: 1px solid rgba(255,255,255,0.10);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+      text-decoration: none;
+      transform: translateZ(0);
+      aspect-ratio: 1 / 1; /* квадратные карточки */
+    }
+
+    .card::after{
+      content:"";
+      position:absolute;
+      inset:0;
+      background: linear-gradient(to top, rgba(0,0,0,0.55), transparent 55%);
+      pointer-events:none;
+    }
+
+    .card img{
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      transform: scale(1.02);
+      transition: transform .25s ease;
+    }
+
+    .label{
+      position: absolute;
+      left: 12px;
+      right: 12px;
+      bottom: 12px;
+      z-index: 1;
+      font-weight: 700;
+      font-size: 15px;
+      letter-spacing: 0.2px;
+      text-shadow: 0 2px 10px rgba(0,0,0,0.6);
+    }
+
+    .hint{
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 12px;
+      text-align: center;
+      opacity: 0.9;
+    }
+
+    /* эффекты */
+    .card:active { transform: scale(0.985); }
+    @media (hover:hover){
+      .card:hover img{ transform: scale(1.07); }
+      .card:hover{ border-color: rgba(255,255,255,0.18); background: var(--card2); }
+    }
+
+    /* на очень узких экранах можно оставить 2 колонки, но чуть меньше gap */
+    @media (max-width: 360px){
+      .grid{ gap: 10px; }
+      .label{ font-size: 14px; }
+    }
+  </style>
 </head>
 <body>
+  <div class="wrap">
+    <div class="header">
+      <h1>Выбери и оживи экспонат</h1>
+      <div class="sub">Нажми на картинку, наведи камеру на экспонат</div>
+    </div>
 
-    <button id="close-btn" onclick="closeVideo()">✕</button>
-    
-    <video id="ar-video" src="./mamont.mp4" preload="auto" playsinline webkit-playsinline muted></video>
+    <div class="grid">
+      <a class="card" href="mamont.html" aria-label="Мамонт">
+        <img src="mamont.jpg" alt="Мамонт">
+        <div class="label"></div>
+      </a>
 
+      <a class="card" href="most.html" aria-label="Мост">
+        <img src="most.jpg" alt="Мост">
+        <div class="label"></div>
+      </a>
 
-    <div id="scanning-overlay">Наведите на медведя</div>
-    <img id="guide-overlay" src="./mamont.jpg">
+      <a class="card" href="electro.html" aria-label="Электро">
+        <img src="electro.jpg" alt="Электро">
+        <div class="label"></div>
+      </a>
 
-    <a-scene 
-        mindar-image="imageTargetSrc: ./mamont.mind; autoStart: true; uiLoading: no; uiScanning: no;" 
-        vr-mode-ui="enabled: false" 
-        device-orientation-permission-ui="enabled: false">
-        
-        <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+      <a class="card" href="korabl.html" aria-label="Корабль">
+        <img src="korabl.jpg" alt="Корабль">
+        <div class="label"></div>
+      </a>
+    </div>
 
-        <a-entity mindar-image-target="targetIndex: 0" video-handler></a-entity>
-    </a-scene>
-<script>
-  window.addEventListener("error", (e) => console.log("window.error:", e.message));
-  window.addEventListener("unhandledrejection", (e) => console.log("promise:", e.reason));
-
-  document.addEventListener("DOMContentLoaded", () => {
-    const scene = document.querySelector("a-scene");
-    scene.addEventListener("loaded", () => console.log("a-scene loaded"));
-    scene.addEventListener("arReady", () => console.log("MindAR ready"));
-    scene.addEventListener("arError", (e) => console.log("MindAR error", e.detail));
-  });
-</script>
+    <div class="hint"></div>
+  </div>
 </body>
-</html>
 </html>

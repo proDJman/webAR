@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mamont AR</title>
+
+  <script src="./libs/aframe.min.js"></script>
+  <script src="./libs/aframe-extras.min.js"></script>
+  <script src="./libs/mindar-image-aframe.prod.js"></script>
+
+  <style>
+    body { margin: 0; overflow: hidden; background: #000; }
+
+    /* Твой текст "Наведите на метку" */
+    #scanning-overlay {
+      position: absolute;
+      bottom: 20px; left: 0; right: 0;
+      text-align: center;
+      color: white;
+      z-index: 10;
+      font-family: sans-serif;
+      text-shadow: 0 0 5px black;
+      display: none; /* покажем после разрешения камеры */
+    }
+
+    /* Твоя картинка-оверлей */
+    #guide-overlay {
+      position: absolute;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      object-fit: cover;
+      opacity: 0.5;
+      z-index: 5;
+      pointer-events: none;
+      display: none; /* покажем после разрешения камеры */
+    }
+
+    /* Стартовый экран */
+    #start-screen {
+      position: absolute;
+      inset: 0;
+      z-index: 999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 16px;
+      color: #fff;
+      font-family: sans-serif;
+      text-align: center;
+      background: rgba(0,0,0,0.92);
+      padding: 24px;
+    }
+
+    #start-title { font-size: 18px; opacity: 0.95; }
+    #start-subtitle { font-size: 14px; opacity: 0.8; max-width: 520px; line-height: 1.35; }
+
+    .btn {
+      appearance: none;
+      border: 0;
+      border-radius: 999px;
+      padding: 12px 18px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    /* простой спиннер */
+    #spinner {
+      width: 34px;
+      height: 34px;
+      border: 3px solid rgba(255,255,255,0.25);
+      border-top-color: rgba(255,255,255,0.95);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      display: none;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    #status { font-size: 14px; opacity: 0.85; min-height: 18px; }
+  </style>
+
+</head>
+
+<body>
+  <!-- СТАРТОВЫЙ ЭКРАН (пока нет разрешения камеры) -->
+  <div id="start-screen">
+    <div id="start-title">Загрузка…</div>
+    <div id="start-subtitle">
+      Нажмите кнопку ниже, чтобы разрешить доступ к камере.
+      После этого появится подсказка-оверлей для наведения на экспонат.
+    </div>
+    <div id="spinner"></div>
+    <div id="status"></div>
+    <button id="start-btn" class="btn">Включить камеру</button>
+  </div>
+
+  <!-- ТВОИ ОВЕРЛЕИ (покажем только после старта AR) -->
+  <div id="scanning-overlay">Наведите на метку</div>
+  <img id="guide-overlay" src="./mamont.jpg" />
+
+  <a-scene
+    mindar-image="
+      imageTargetSrc: ./mamont.mind;
+      autoStart: false;
+      uiLoading: no;
+      uiScanning: no;
+    "
+    vr-mode-ui="enabled: false"
+    device-orientation-permission-ui="enabled: false"
+    renderer="colorManagement: true;"
+  >
+    <a-assets>
+      <a-asset-item id="model" src="./mamont2.glb"></a-asset-item>
+    </a-assets>
+
+    <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+
+    <a-entity mindar-image-target="targetIndex: 0" marker-handler pose-smoothing="posAlpha: 0.12; rotAlpha: 0.10">
+      <a-gltf-model
+        src="#model"
+		
+        position="0 0 0"
+        scale="0.7 0.7 0.7"
+        rotation="0 -90 0"
+        animation-mixer="clip: Gesture; loop: repeat"
+      ></a-gltf-model>
+    </a-entity>
+  </a-scene>
+
+  <script>
+  // --- Overlay logic: hide guide/text when target found, show when lost ---
+  AFRAME.registerComponent('marker-handler', {
+    init: function () {
+      const guide = document.querySelector('#guide-overlay');
+      const scanning = document.querySelector('#scanning-overlay');
+
+      this.el.addEventListener('targetFound', () => {
+        console.log("targetFound");
+        if (guide) guide.style.display = 'none';
+        if (scanning) scanning.style.display = 'none';
+      });
+
+      this.el.addEventListener('targetLost', () => {
+        console.log("targetLost");
+        if (guide) guide.style.display = 'block';
+        if (scanning) scanning.style.display = 'block';
+      });
+    }
+  });
+
+  // --- Optional: stabilize target pose (reduces model jitter) ---
+  AFRAME.registerComponent('pose-smoothing', {
+    schema: {
+      posAlpha: { type: 'number', default: 0.12 }, // 0..1
+      rotAlpha: { type: 'number', default: 0.10 }  // 0..1
+    },
+    init() {
+      this.tmpPos = new THREE.Vector3();
+      this.tmpQuat = new THREE.Quaternion();
+      this.curPos = new THREE.Vector3();
+      this.curQuat = new THREE.Quaternion();
+      this.tmpScale = new THREE.Vector3(1, 1, 1);
+      this.inited = false;
+    },
+    tick() {
+      const o = this.el.object3D;
+
+      o.getWorldPosition(this.tmpPos);
+      o.getWorldQuaternion(this.tmpQuat);
+
+      if (!this.inited) {
+        this.curPos.copy(this.tmpPos);
+        this.curQuat.copy(this.tmpQuat);
+        this.inited = true;
+      } else {
+        this.curPos.lerp(this.tmpPos, this.data.posAlpha);
+        this.curQuat.slerp(this.tmpQuat, this.data.rotAlpha);
+      }
+
+      if (o.parent) {
+        const parentInv = new THREE.Matrix4().copy(o.parent.matrixWorld).invert();
+        const m = new THREE.Matrix4().compose(this.curPos, this.curQuat, this.tmpScale);
+        m.premultiply(parentInv);
+        m.decompose(o.position, o.quaternion, o.scale);
+        o.matrixWorldNeedsUpdate = true;
+      }
+    }
+  });
+
+  // --- Debug helpers ---
+  window.addEventListener("error", (e) => console.log("window.error:", e.message));
+  window.addEventListener("unhandledrejection", (e) => console.log("promise:", e.reason));
+
+  document.addEventListener("DOMContentLoaded", () => {
+    const scene = document.querySelector("a-scene");
+
+    const startScreen = document.querySelector("#start-screen");
+    const spinner = document.querySelector("#spinner");
+    const status = document.querySelector("#status");
+
+    const guide = document.querySelector("#guide-overlay");
+    const scanning = document.querySelector("#scanning-overlay");
+
+    const setStatus = (t) => { if (status) status.textContent = t || ""; };
+    const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+    let started = false;
+
+    scene.addEventListener("arReady", () => {
+      console.log("MindAR ready");
+      if (startScreen) startScreen.style.display = "none";
+      if (guide) guide.style.display = "block";
+      if (scanning) scanning.style.display = "block";
+    });
+
+    scene.addEventListener("arError", (e) => {
+      console.log("MindAR error", e.detail);
+      // Минимальная подсказка (можешь оставить пусто, если совсем без текста)
+      setStatus("Тапните по экрану");
+      started = false;
+    });
+
+    async function startAR() {
+      if (started) return;
+      started = true;
+
+      try {
+        if (spinner) spinner.style.display = "block";
+        setStatus(""); // без лишнего текста
+
+        // 1) Нативный prompt камеры (должен быть в user gesture на iOS)
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "environment" },
+          audio: false
+        });
+
+        // 2) Освободить камеру и дать iOS время реально отпустить устройство
+        stream.getTracks().forEach(t => t.stop());
+        await sleep(900);
+
+        // 3) Запуск MindAR с ретраями (чтобы не требовать второй тап)
+        const mindar = scene.systems["mindar-image-system"];
+        if (!mindar) throw new Error("mindar-image-system not found");
+
+        let ok = false;
+        for (let i = 0; i < 3; i++) {
+          try {
+            await mindar.start();
+            ok = true;
+            break;
+          } catch (e) {
+            console.log("mindar.start retry", i + 1, e);
+            await sleep(700 + i * 300);
+          }
+        }
+        if (!ok) throw new Error("mindar.start failed");
+
+        // Дальше ждём arReady — он сам уберёт прелоадер
+      } catch (err) {
+        console.log("start error:", err);
+        started = false;
+        setStatus("Тапните по экрану");
+      }
+    }
+
+    // “Без кнопок”: первый жест в любом месте
+    const onGesture = () => startAR();
+    window.addEventListener("touchend", onGesture, { passive: true });
+    window.addEventListener("click", onGesture);
+
+    // Попытка автозапуска: на Android/desktop может сработать, на iOS — нет, но не мешает
+    startAR();
+  });
+</script>
+</body>
+</html>

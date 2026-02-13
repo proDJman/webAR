@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebAR Video Test</title>
+    
+<script  src="./libs/aframe.min.js"></script>
+<script  src="./libs/mindar-image-aframe.prod.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const scene = document.querySelector("a-scene");
+  const video = document.querySelector('#ar-video');
+
+  scene.addEventListener("arReady", () => {
+    console.log("MindAR ready -> preload video");
+    video.load();
+  });
+});
+</script>
+
+<script>
+let videoUnlocked = false;
+
+document.addEventListener("touchstart", () => {
+  if (videoUnlocked) return;
+
+  const video = document.querySelector('#ar-video');
+
+  video.play().then(() => {
+    video.pause();
+    video.currentTime = 0;
+    videoUnlocked = true;
+    console.log("iOS video unlocked");
+  }).catch(()=>{});
+
+}, { once: true });
+</script>
+
+
+    <style>
+        body { margin: 0; overflow: hidden; background: #000; }
+        
+        /* Видео на весь экран */
+        #ar-video {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            object-fit: cover;
+            z-index: 999; /* Максимальный приоритет */
+            display: none; 
+        }
+
+
+
+        #scanning-overlay {
+            position: absolute;
+            bottom: 20px; left: 0; right: 0;
+            text-align: center;
+            color: white;
+            z-index: 10;
+            font-family: sans-serif;
+            text-shadow: 0 0 5px black;
+        }
+
+        /* Кнопка закрытия видео */
+		#close-btn {
+			position: absolute;
+			top: 20px;
+			right: 20px;
+
+			width: 50px;
+			height: 50px;
+
+			display: none;
+			align-items: center;
+			justify-content: center;
+
+			background: rgba(255,255,255,0.8);
+			border: none;
+			border-radius: 50%;
+
+			font-size: 22px;
+			font-weight: bold;
+			cursor: pointer;
+
+			z-index: 1000;
+		}
+		#close-btn {
+		display: flex;
+		}
+        #guide-overlay {
+        position: absolute;
+        inset: 0;
+        width: 100vw;
+        height: 100vh;
+        object-fit: cover; /* или contain */
+        opacity: 0.5;
+        z-index: 5;
+        pointer-events: none;
+      }
+
+
+        
+
+    </style>
+
+<script>
+  let isTargetVisible = false;
+
+  function stopAndHideVideo(resetTime = true) {
+    const video = document.querySelector('#ar-video');
+    const closeBtn = document.querySelector('#close-btn');
+    video.pause();
+    if (resetTime) video.currentTime = 0;
+    video.style.display = 'none';
+    closeBtn.style.display = 'none';
+  }
+
+  function showScanUI() {
+    const guide = document.querySelector('#guide-overlay');
+    const scanning = document.querySelector('#scanning-overlay');
+    guide.style.display = 'block';
+    scanning.style.display = 'block';
+  }
+
+  function hideScanUI() {
+    const guide = document.querySelector('#guide-overlay');
+    const scanning = document.querySelector('#scanning-overlay');
+    guide.style.display = 'none';
+    scanning.style.display = 'none';
+  }
+
+  function playFromStartIfAllowed() {
+    const video = document.querySelector('#ar-video');
+    const closeBtn = document.querySelector('#close-btn');
+
+    video.currentTime = 0;
+    video.style.display = 'block';
+	closeBtn.style.display = 'flex';
+
+    video.play().catch(() => {
+      console.log("Автоплей заблокирован, нужно касание");
+    });
+  }
+
+  AFRAME.registerComponent('video-handler', {
+    init: function () {
+      const video = document.querySelector('#ar-video');
+
+      // Когда видео закончилось — просто вернуться в режим сканирования
+      video.addEventListener('ended', () => {
+        stopAndHideVideo(true);
+        showScanUI();
+      });
+
+		this.el.addEventListener('targetFound', () => {
+		  console.log("Маркер найден!");
+
+		  if (video.style.display === 'block') return; // уже играет
+
+		  hideScanUI();
+		  playFromStartIfAllowed();
+		});
+
+		this.el.addEventListener('targetLost', () => {
+		  console.log("Маркер потерян!");
+		  isTargetVisible = false;
+		  // НИЧЕГО НЕ ДЕЛАЕМ
+		});
+    }
+  });
+
+  function closeVideo() {
+    isTargetVisible = false;
+    stopAndHideVideo(true);
+    showScanUI();
+  }
+</script>
+</head>
+<body>
+
+    <button id="close-btn" onclick="closeVideo()">✕</button>
+    
+    <video id="ar-video" src="./most.mp4" preload="auto" playsinline webkit-playsinline muted></video>
+
+
+    <div id="scanning-overlay">Совместите фото объектом</div>
+    <img id="guide-overlay" src="./most.jpg">
+
+    <a-scene 
+        mindar-image="imageTargetSrc: ./most.mind; autoStart: true; uiLoading: no; uiScanning: no;" 
+        vr-mode-ui="enabled: false" 
+        device-orientation-permission-ui="enabled: false">
+        
+        <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+
+        <a-entity mindar-image-target="targetIndex: 0" video-handler></a-entity>
+    </a-scene>
+<script>
+  window.addEventListener("error", (e) => console.log("window.error:", e.message));
+  window.addEventListener("unhandledrejection", (e) => console.log("promise:", e.reason));
+
+  document.addEventListener("DOMContentLoaded", () => {
+    const scene = document.querySelector("a-scene");
+    scene.addEventListener("loaded", () => console.log("a-scene loaded"));
+    scene.addEventListener("arReady", () => console.log("MindAR ready"));
+    scene.addEventListener("arError", (e) => console.log("MindAR error", e.detail));
+  });
+</script>
+</body>
+</html>
+</html>
