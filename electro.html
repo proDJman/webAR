@@ -150,8 +150,7 @@ document.addEventListener("touchstart", () => {
 
       // Когда видео закончилось — просто вернуться в режим сканирования
 		video.addEventListener('ended', () => {
-		  stopAndHideVideo(true);
-		  showScanUI();
+		  window.location.href = "index.html";
 		});
 		this.el.addEventListener('targetFound', () => {
 		  console.log("Маркер найден!");
