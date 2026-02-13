@@ -149,11 +149,10 @@ document.addEventListener("touchstart", () => {
       const video = document.querySelector('#ar-video');
 
       // Когда видео закончилось — просто вернуться в режим сканирования
-      video.addEventListener('ended', () => {
-        stopAndHideVideo(true);
-        showScanUI();
-      });
-
+		video.addEventListener('ended', () => {
+		  stopAndHideVideo(true);
+		  showScanUI();
+		});
 		this.el.addEventListener('targetFound', () => {
 		  console.log("Маркер найден!");
 
