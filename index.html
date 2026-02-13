@@ -64,18 +64,31 @@ document.addEventListener("touchstart", () => {
         }
 
         /* Кнопка закрытия видео */
-        #close-btn {
-            position: absolute;
-            top: 20px; right: 20px;
-            padding: 15px;
-            background: rgba(255,255,255,0.7);
-            border: none; border-radius: 50%;
-            z-index: 1000;
-            display: none;
-            cursor: pointer;
-            font-weight: bold;
+		#close-btn {
+			position: absolute;
+			top: 20px;
+			right: 20px;
 
-        }
+			width: 50px;
+			height: 50px;
+
+			display: none;
+			align-items: center;
+			justify-content: center;
+
+			background: rgba(255,255,255,0.8);
+			border: none;
+			border-radius: 50%;
+
+			font-size: 22px;
+			font-weight: bold;
+			cursor: pointer;
+
+			z-index: 1000;
+		}
+		#close-btn {
+		display: flex;
+		}
         #guide-overlay {
         position: absolute;
         inset: 0;
@@ -124,7 +137,7 @@ document.addEventListener("touchstart", () => {
 
     video.currentTime = 0;
     video.style.display = 'block';
-    closeBtn.style.display = 'block';
+	closeBtn.style.display = 'flex';
 
     video.play().catch(() => {
       console.log("Автоплей заблокирован, нужно касание");
@@ -141,19 +154,20 @@ document.addEventListener("touchstart", () => {
         showScanUI();
       });
 
-      this.el.addEventListener('targetFound', () => {
-        console.log("Маркер найден!");
-        isTargetVisible = true;
-        hideScanUI();
-        playFromStartIfAllowed();
-      });
+		this.el.addEventListener('targetFound', () => {
+		  console.log("Маркер найден!");
 
-      this.el.addEventListener('targetLost', () => {
-        console.log("Маркер потерян!");
-        isTargetVisible = false;
-        stopAndHideVideo(true);
-        showScanUI();
-      });
+		  if (video.style.display === 'block') return; // уже играет
+
+		  hideScanUI();
+		  playFromStartIfAllowed();
+		});
+
+		this.el.addEventListener('targetLost', () => {
+		  console.log("Маркер потерян!");
+		  isTargetVisible = false;
+		  // НИЧЕГО НЕ ДЕЛАЕМ
+		});
     }
   });
 
